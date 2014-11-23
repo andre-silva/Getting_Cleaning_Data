@@ -3,6 +3,8 @@
 run_analysis <- function() {
     ## Load required libraries
     library(data.table)
+    library(plyr)
+    library(reshape2)
     
     ## Download and unzip data
     if(!file.exists("./data")){dir.create("./data")}
@@ -19,11 +21,9 @@ run_analysis <- function() {
     x_train <- read.table("./data/UCI HAR Dataset/train/X_train.txt")
     y_train <- read.table("./data/UCI HAR Dataset/train/y_train.txt")
     
-    testSet <- cbind(subject_test,y_test,x_test)
-    
-    trainSet <- cbind(subject_train,y_train,x_train)
-    
-    mergedSet <- rbind(testSet, trainSet)
+    subjectSet <- rbind(subject_test,subject_train)
+    xSet <- rbind(x_test,x_train)
+    ySet <- rbind(y_test, y_train)
     
     ## Step 2: Extract only the measurements on the mean and standard deviation
     ## for each measurement
@@ -33,18 +33,39 @@ run_analysis <- function() {
     ## features so should be included
     meanIndices <- grep("mean()",features$V2,fixed=TRUE)
     stdIndices <- grep("std()",features$V2,fixed=TRUE)
-    indices <- c(1,2,meanIndices+2,stdIndices+2)
     
-    mergedSet <- mergedSet[,indices]
+    xSet <- xSet[,c(meanIndices,stdIndices)]
     
     ## Step 3: Use descriptive activity names to name the activities
     ## in the data set
-    activity_labels <- read.table("./data/UCI HAR Dataset/activity_labels.txt")
-    mergedSet <- merge(mergedSet, activity_labels, by.x="V1.1",by.y="V1",all=FALSE)
-    mergedSet <- mergedSet[,c(1,69,3:68)]
+    ySet$V1 <- factor(ySet$V1)
+    ySet$V1 <- revalue(ySet$V1, c("1"="WALKING", "2"="WALKING_UPSTAIRS", 
+                                  "3"="WALKING_DOWNSTAIRS","4"="SITTING",
+                                  "5"="STANDING","6"="LAYING"))
     
     ## Step 4: Appropriately labels the data set with descriptive variable names. 
     namesMean <- as.character(features[meanIndices,"V2"])
     namesStd <- as.character(features[stdIndices,"V2"])
-    names(mergedSet) <- c("Subject","Activity",namesMean,namesStd)
+    names(xSet) <- c(namesMean,namesStd)
+    ## Remove the parenthesis
+    names(xSet) <- sub("()","",names(xSet),fixed=TRUE)
+    ## Set to more descriptive Time and Frequency instead of t and f
+    names(xSet) <- sub("tBody","timeBody",names(xSet),fixed=TRUE)
+    names(xSet) <- sub("tGravity","timeGravity",names(xSet),fixed=TRUE)
+    names(xSet) <- sub("fBody","frequencyBody",names(xSet),fixed=TRUE)
+    names(xSet) <- sub("fGravity","frequencyGravity",names(xSet),fixed=TRUE)
+    
+    names(ySet) <- c("Activity")
+    names(subjectSet) <- c("Subject")
+    
+    ## Merge into 1 dataset to prepare for step 5
+    completeSet <- cbind(subjectSet,ySet,xSet)
+    
+    ## Step 5: From the data set in step 4, creates a second, 
+    ## independent tidy data set with the average of each variable
+    ## for each activity and each subject.
+    moltenSet <- melt(completeSet,id.vars=c("Subject","Activity"))
+    finalSet <- dcast(moltenSet, Subject + Activity ~ variable, fun = mean)
+    write.table(finalSet, file="tidyDataset.txt",row.names=FALSE)
+    
 }
