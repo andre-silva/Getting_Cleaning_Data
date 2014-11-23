@@ -54,6 +54,7 @@ run_analysis <- function() {
     names(xSet) <- sub("tGravity","timeGravity",names(xSet),fixed=TRUE)
     names(xSet) <- sub("fBody","frequencyBody",names(xSet),fixed=TRUE)
     names(xSet) <- sub("fGravity","frequencyGravity",names(xSet),fixed=TRUE)
+    names(xSet) <- paste(names(test),"-mean",sep="")
     
     names(ySet) <- c("Activity")
     names(subjectSet) <- c("Subject")
